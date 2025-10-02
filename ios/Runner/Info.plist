@@ -48,8 +48,11 @@
 
 	<!-- Izin lokasi hanya saat app digunakan -->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Aplikasi ini membutuhkan akses lokasi untuk menampilkan posisi dan ketinggian Anda.</string>
-
+	<string>This app needs access to location when open.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+  	<string>location</string>
+	</array>
 	<!-- Izin akses jaringan -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
