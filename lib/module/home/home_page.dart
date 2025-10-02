@@ -1,6 +1,7 @@
 // ignore_for_file: use_build_context_synchronously, deprecated_member_use
 
 import "dart:async";
+import "dart:ui";
 
 import "package:base/base.dart";
 import "package:flutter/material.dart";
@@ -250,7 +251,9 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           const Spacer(),
-          _buildLocationInfo(state, textColor),
+          _buildLocationInfo(
+            state,
+          ),
           const SizedBox(height: 20),
           _buildSaveButtons(state),
         ],
@@ -261,18 +264,19 @@ class _HomePageState extends State<HomePage> {
   Widget _buildSaveButtons(HomeTracking state) => Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          FilledButton(
-            onPressed: () {
+          _glassButton(
+            label: "Simpan MDPL",
+            onTap: () {
               if (state.altitude != null) {
                 context.read<HomeBloc>().add(SaveMdpl(state.altitude!));
                 BaseOverlays.success(message: "MDPL disimpan!");
               }
             },
-            child: const Text("Simpan MDPL"),
           ),
           const SizedBox(width: 20),
-          FilledButton(
-            onPressed: () async {
+          _glassButton(
+            label: "Simpan Lokasi",
+            onTap: () async {
               if (state.latitude != null &&
                   state.longitude != null &&
                   state.altitude != null) {
@@ -290,10 +294,65 @@ class _HomePageState extends State<HomePage> {
                 }
               }
             },
-            child: const Text("Simpan Lokasi"),
           ),
         ],
       );
+
+  /// Helper untuk membuat tombol liquid glass
+  Widget _glassButton({
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(Dimensions.size20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(
+          sigmaX: Dimensions.size20,
+          sigmaY: Dimensions.size20,
+        ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(Dimensions.size20),
+          child: Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: Dimensions.size25,
+              vertical: Dimensions.size15,
+            ),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(Dimensions.size20),
+              gradient: LinearGradient(
+                colors: [
+                  Colors.white.withOpacity(0.25),
+                  Colors.white.withOpacity(0.05),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.3),
+                width: Dimensions.size1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _buildTopBar(Color textColor, String time, String date) => Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -335,23 +394,29 @@ class _HomePageState extends State<HomePage> {
         ],
       );
 
-  Widget _buildLocationInfo(HomeTracking state, Color textColor) => Column(
+  Widget _buildLocationInfo(
+    HomeTracking state,
+  ) =>
+      Column(
         children: [
           if (state.locationName != null)
             Text(
               state.locationName!,
-              style: TextStyle(fontSize: 16, color: textColor),
+              style: TextStyle(
+                fontSize: 16,
+              ),
               textAlign: TextAlign.center,
             )
           else
             Text(
               "",
-              style: TextStyle(color: textColor.withOpacity(0.6)),
             ),
           if (state.latitude != null && state.longitude != null)
             Text(
               "Lat: ${state.latitude!.toStringAsFixed(6)} | Lng: ${state.longitude!.toStringAsFixed(6)}",
-              style: TextStyle(fontSize: 14, color: textColor),
+              style: TextStyle(
+                fontSize: 14,
+              ),
             ),
         ],
       );
@@ -412,31 +477,35 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildFab(BuildContext context, HomeTracking state) => SpeedDial(
         animatedIcon: AnimatedIcons.menu_close,
+        buttonSize: Size(40, 40),
         overlayOpacity: 0.3,
-        spacing: 12,
+        spacing: 15,
+        elevation: 0,
+        animationCurve: Curves.elasticIn,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
         children: [
-          SpeedDialChild(
-            child: const Icon(FontAwesomeIcons.compass, color: Colors.white),
-            backgroundColor: Colors.deepPurple,
+          _glassAction(
+            icon: const Icon(FontAwesomeIcons.compass, color: Colors.white),
             label: "Kompas",
+            color: Colors.deepPurple,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const CompassPage()),
             ),
           ),
-          SpeedDialChild(
-            child: const Icon(Icons.sos, color: Colors.white),
-            backgroundColor: Colors.redAccent,
+          _glassAction(
+            icon: const Icon(Icons.sos, color: Colors.white),
             label: "Emergency",
+            color: Colors.redAccent,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const EmergencyPage()),
             ),
           ),
-          SpeedDialChild(
-            child: const Icon(FontAwesomeIcons.lungs, color: Colors.white),
-            backgroundColor: Colors.green,
+          _glassAction(
+            icon: const Icon(FontAwesomeIcons.lungs, color: Colors.white),
             label: "Level Oksigen",
+            color: Colors.green,
             onTap: () {
               if (state.altitude != null) {
                 Navigator.push(
@@ -452,10 +521,10 @@ class _HomePageState extends State<HomePage> {
               }
             },
           ),
-          SpeedDialChild(
-            child: const Icon(Icons.thermostat, color: Colors.white),
-            backgroundColor: Colors.orange,
+          _glassAction(
+            icon: const Icon(Icons.thermostat, color: Colors.white),
             label: "Suhu Sekitar",
+            color: Colors.orange,
             onTap: () {
               if (state.latitude != null && state.longitude != null) {
                 Navigator.push(
@@ -472,10 +541,10 @@ class _HomePageState extends State<HomePage> {
               }
             },
           ),
-          SpeedDialChild(
-            child: const Icon(Icons.wb_sunny, color: Colors.white),
-            backgroundColor: Colors.amber,
+          _glassAction(
+            icon: const Icon(Icons.wb_sunny, color: Colors.white),
             label: "Sunrise/Sunset",
+            color: Colors.amber,
             onTap: () {
               if (state.latitude != null && state.longitude != null) {
                 Navigator.push(
@@ -494,4 +563,68 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       );
+
+  /// Helper widget untuk liquid glass effect tiap menu
+  SpeedDialChild _glassAction({
+    required Widget icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return SpeedDialChild(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      labelWidget: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              gradient: LinearGradient(
+                colors: [
+                  Colors.white.withOpacity(0.2),
+                  Colors.white.withOpacity(0.05),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.25),
+                width: 1.2,
+              ),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.35),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.25),
+                width: 1.0,
+              ),
+            ),
+            child: icon,
+          ),
+        ),
+      ),
+      onTap: onTap,
+    );
+  }
 }
