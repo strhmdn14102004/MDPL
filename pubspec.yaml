@@ -1,0 +1,43 @@
+name: mdpl
+description: project mdpl by satria ramadan.
+publish_to: none
+version: 1.0.0
+
+environment:
+  sdk: ^3.6.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  base:
+    git:
+      url: https://github.com/strhmdn14102004/assets-flutter.git
+      # path: D:/assets
+  flutter_bloc: ^9.1.1
+  go_router: ^16.0.0
+  loader_overlay: ^2.1.0
+  shimmer: ^3.0.0
+  equatable: ^2.0.7
+  geocoding: ^4.0.0
+  sensors_plus: ^7.0.0
+  smooth_page_indicator: ^1.2.1
+  url_launcher: ^6.3.2
+  flutter_speed_dial: ^7.0.0
+  font_awesome_flutter: ^10.10.0
+  flutter_compass: ^0.8.1
+  torch_light: ^1.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
+    - assets/font/
+    - assets/image/
+    - assets/lottie/
+    - assets/i18n/
