@@ -10,6 +10,7 @@ class HomeTracking extends HomeState {
   final double? longitude;
   final String? locationName;
   final String? weatherCondition;
+  final bool hasInternet;
 
   final List<Map<String, dynamic>> mdplHistory;
   final List<Map<String, dynamic>> locationHistory;
@@ -19,6 +20,7 @@ class HomeTracking extends HomeState {
     this.latitude,
     this.longitude,
     this.locationName,
+    this.hasInternet = true,
     this.weatherCondition,
     this.mdplHistory = const [],
     this.locationHistory = const [],

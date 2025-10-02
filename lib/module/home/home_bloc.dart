@@ -80,6 +80,10 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           distanceFilter: 1,
         ),
       ).listen((pos) async {
+        if (pos.latitude.isNaN || pos.longitude.isNaN) {
+          return;
+        }
+
         bool hasInternet = false;
         try {
           final result = await InternetAddress.lookup("example.com");
@@ -150,6 +154,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         locationName: name,
         weatherCondition: currentState.weatherCondition,
         mdplHistory: currentState.mdplHistory,
+        hasInternet: event.hasInternet,
         locationHistory: currentState.locationHistory,
       ),
     );

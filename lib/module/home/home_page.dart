@@ -1,4 +1,4 @@
-// ignore_for_file: use_build_context_synchronously, deprecated_member_use
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
 
 import "dart:async";
 import "dart:ui";
@@ -75,52 +75,63 @@ class _HomePageState extends State<HomePage> {
           child: SafeArea(
             child: Scaffold(
               backgroundColor: bgColor,
-              body: state is HomeTracking
-                  ? Stack(
-                      children: [
-                        if (state.weatherCondition != null)
-                          Positioned.fill(
-                            child: _buildWeatherBackground(
-                              state.weatherCondition!,
+              body: () {
+                if (state is HomeTracking) {
+                  return Stack(
+                    children: [
+                      if (state.weatherCondition != null)
+                        Positioned.fill(
+                          child: _buildWeatherBackground(
+                            state.weatherCondition!,
+                          ),
+                        ),
+                      Column(
+                        children: [
+                          Expanded(
+                            child: PageView(
+                              controller: _pageController,
+                              children: [
+                                _buildMdplHistory(state),
+                                _buildMainContent(
+                                  state,
+                                  textColor,
+                                  formattedTime,
+                                  formattedDate,
+                                ),
+                                _buildLocationHistory(state),
+                              ],
                             ),
                           ),
-                        Column(
-                          children: [
-                            Expanded(
-                              child: PageView(
-                                controller: _pageController,
-                                children: [
-                                  _buildMdplHistory(state),
-                                  _buildMainContent(
-                                    state,
-                                    textColor,
-                                    formattedTime,
-                                    formattedDate,
-                                  ),
-                                  _buildLocationHistory(state),
-                                ],
+                          Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: SmoothPageIndicator(
+                              controller: _pageController,
+                              count: 3,
+                              effect: WormEffect(
+                                dotHeight: 10,
+                                dotWidth: 10,
+                                spacing: 12,
+                                dotColor: Colors.grey.shade400,
+                                activeDotColor: Colors.blueAccent,
                               ),
                             ),
-                            Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: SmoothPageIndicator(
-                                controller: _pageController,
-                                count: 3,
-                                effect: WormEffect(
-                                  dotHeight: 10,
-                                  dotWidth: 10,
-                                  spacing: 12,
-                                  dotColor: Colors.grey.shade400,
-                                  activeDotColor: Colors.blueAccent,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        _buildInfoButton(textColor),
-                      ],
-                    )
-                  : BaseWidgets.shimmer(),
+                          ),
+                        ],
+                      ),
+                      _buildInfoButton(textColor),
+                    ],
+                  );
+                } else if (state is HomeError) {
+                  return Center(
+                    child: Text(
+                      state.message,
+                      style: const TextStyle(color: Colors.red, fontSize: 16),
+                    ),
+                  );
+                } else {
+                  return BaseWidgets.shimmer();
+                }
+              }(),
               floatingActionButton:
                   state is HomeTracking ? _buildFab(context, state) : null,
             ),
@@ -130,6 +141,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// ====== HISTORY ======
   Widget _buildMdplHistory(HomeTracking state) => ListView(
         padding: const EdgeInsets.all(20),
         children: [
@@ -231,12 +243,16 @@ class _HomePageState extends State<HomePage> {
         ],
       );
 
+  /// ====== MAIN CONTENT ======
   Widget _buildMainContent(
     HomeTracking state,
     Color textColor,
     String time,
     String date,
   ) {
+    // 🔑 Fallback: jika GPS null → gunakan barometer altitude dari bloc
+    final altitudeValue = state.altitude?.round() ?? "-";
+
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(
@@ -244,16 +260,14 @@ class _HomePageState extends State<HomePage> {
           _buildTopBar(textColor, time, date),
           const Spacer(),
           Text(
-            "${state.altitude?.round() ?? "-"} Mdpl",
+            "$altitudeValue Mdpl",
             style: const TextStyle(
               fontSize: 48,
               fontWeight: FontWeight.bold,
             ),
           ),
           const Spacer(),
-          _buildLocationInfo(
-            state,
-          ),
+          _buildLocationInfo(state),
           const SizedBox(height: 20),
           _buildSaveButtons(state),
         ],
@@ -261,6 +275,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// ====== SAVE BUTTONS GLASS ======
   Widget _buildSaveButtons(HomeTracking state) => Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -298,28 +313,21 @@ class _HomePageState extends State<HomePage> {
         ],
       );
 
-  /// Helper untuk membuat tombol liquid glass
   Widget _glassButton({
     required String label,
     required VoidCallback onTap,
   }) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(Dimensions.size20),
+      borderRadius: BorderRadius.circular(20),
       child: BackdropFilter(
-        filter: ImageFilter.blur(
-          sigmaX: Dimensions.size20,
-          sigmaY: Dimensions.size20,
-        ),
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(Dimensions.size20),
+          borderRadius: BorderRadius.circular(20),
           child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: Dimensions.size25,
-              vertical: Dimensions.size15,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 15),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(Dimensions.size20),
+              borderRadius: BorderRadius.circular(20),
               gradient: LinearGradient(
                 colors: [
                   Colors.white.withOpacity(0.25),
@@ -328,10 +336,7 @@ class _HomePageState extends State<HomePage> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.3),
-                width: Dimensions.size1,
-              ),
+              border: Border.all(color: Colors.white.withOpacity(0.3)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.1),
@@ -354,6 +359,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// ====== TOP BAR ======
   Widget _buildTopBar(Color textColor, String time, String date) => Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -394,33 +400,24 @@ class _HomePageState extends State<HomePage> {
         ],
       );
 
-  Widget _buildLocationInfo(
-    HomeTracking state,
-  ) =>
-      Column(
+  /// ====== LOCATION INFO ======
+  Widget _buildLocationInfo(HomeTracking state) => Column(
         children: [
           if (state.locationName != null)
             Text(
               state.locationName!,
-              style: TextStyle(
-                fontSize: 16,
-              ),
+              style: const TextStyle(fontSize: 16),
               textAlign: TextAlign.center,
-            )
-          else
-            Text(
-              "",
             ),
           if (state.latitude != null && state.longitude != null)
             Text(
               "Lat: ${state.latitude!.toStringAsFixed(6)} | Lng: ${state.longitude!.toStringAsFixed(6)}",
-              style: TextStyle(
-                fontSize: 14,
-              ),
+              style: const TextStyle(fontSize: 14),
             ),
         ],
       );
 
+  /// ====== DIALOG INPUT ======
   Future<String?> _inputNameDialog(BuildContext context) async {
     final controller = TextEditingController();
     return showDialog<String>(
@@ -445,6 +442,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// ====== WEATHER BACKGROUND ======
   Widget _buildWeatherBackground(String condition) {
     switch (condition) {
       case "Rain":
@@ -457,6 +455,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  /// ====== INFO BUTTON ======
   Widget _buildInfoButton(Color textColor) => Positioned(
         bottom: 20,
         left: 20,
@@ -475,9 +474,10 @@ class _HomePageState extends State<HomePage> {
         ),
       );
 
+  /// ====== FAB (GLASS) ======
   Widget _buildFab(BuildContext context, HomeTracking state) => SpeedDial(
         animatedIcon: AnimatedIcons.menu_close,
-        buttonSize: Size(40, 40),
+        buttonSize: const Size(40, 40),
         overlayOpacity: 0.3,
         spacing: 15,
         elevation: 0,
@@ -511,9 +511,7 @@ class _HomePageState extends State<HomePage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => OxygenPage(
-                      altitude: state.altitude!,
-                    ),
+                    builder: (_) => OxygenPage(altitude: state.altitude!),
                   ),
                 );
               } else {
@@ -521,50 +519,51 @@ class _HomePageState extends State<HomePage> {
               }
             },
           ),
-          _glassAction(
-            icon: const Icon(Icons.thermostat, color: Colors.white),
-            label: "Suhu Sekitar",
-            color: Colors.orange,
-            onTap: () {
-              if (state.latitude != null && state.longitude != null) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => TemperaturePage(
-                      latitude: state.latitude!,
-                      longitude: state.longitude!,
+          if (state.hasInternet)
+            _glassAction(
+              icon: const Icon(Icons.thermostat, color: Colors.white),
+              label: "Suhu Sekitar",
+              color: Colors.orange,
+              onTap: () {
+                if (state.latitude != null && state.longitude != null) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => TemperaturePage(
+                        latitude: state.latitude!,
+                        longitude: state.longitude!,
+                      ),
                     ),
-                  ),
-                );
-              } else {
-                BaseOverlays.error(message: "Lokasi belum tersedia");
-              }
-            },
-          ),
-          _glassAction(
-            icon: const Icon(Icons.wb_sunny, color: Colors.white),
-            label: "Sunrise/Sunset",
-            color: Colors.amber,
-            onTap: () {
-              if (state.latitude != null && state.longitude != null) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => SunPage(
-                      latitude: state.latitude!,
-                      longitude: state.longitude!,
+                  );
+                } else {
+                  BaseOverlays.error(message: "Lokasi belum tersedia");
+                }
+              },
+            ),
+          if (state.hasInternet)
+            _glassAction(
+              icon: const Icon(Icons.wb_sunny, color: Colors.white),
+              label: "Sunrise/Sunset",
+              color: Colors.amber,
+              onTap: () {
+                if (state.latitude != null && state.longitude != null) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => SunPage(
+                        latitude: state.latitude!,
+                        longitude: state.longitude!,
+                      ),
                     ),
-                  ),
-                );
-              } else {
-                BaseOverlays.error(message: "Lokasi belum tersedia");
-              }
-            },
-          ),
+                  );
+                } else {
+                  BaseOverlays.error(message: "Lokasi belum tersedia");
+                }
+              },
+            ),
         ],
       );
 
-  /// Helper widget untuk liquid glass effect tiap menu
   SpeedDialChild _glassAction({
     required Widget icon,
     required String label,
