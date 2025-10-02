@@ -1,5 +1,3 @@
-// ignore_for_file: deprecated_member_use
-
 import "dart:io";
 
 import "package:base/base.dart";
@@ -7,6 +5,7 @@ import "package:easy_localization/easy_localization.dart" as el;
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:flutter_web_plugins/url_strategy.dart";
+import "package:geolocator/geolocator.dart";
 import "package:get/get.dart";
 import "package:go_router/go_router.dart";
 import "package:intl/date_symbol_data_local.dart";
@@ -42,9 +41,29 @@ final goRouter = GoRouter(
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   HttpOverrides.global = BaseHttpOverrides();
   await BasePreferences.getInstance().init();
   await Preferences.init();
+
+  Future<void> initLocationPermission() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      await Geolocator.openAppSettings();
+    }
+  }
 
   AppColors.lightColorScheme = const ColorScheme(
     brightness: Brightness.light,
@@ -145,7 +164,7 @@ void main() async {
   usePathUrlStrategy();
   initializeDateFormatting();
   GoRouter.optionURLReflectsImperativeAPIs = true;
-
+  initLocationPermission();
   await el.EasyLocalization.ensureInitialized();
   await BasePreferences.getInstance().init();
 
