@@ -1,0 +1,72 @@
+name: Build and Release IPA & APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-release:
+    runs-on: macos-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          architecture: x64
+      
+      - run: flutter pub get
+
+      - name: Set iOS Deployment Target
+        run: |
+          sed -i '' 's/platform :ios, .*/platform :ios, "13.0"/' ios/Podfile
+          sed -i '' 's/<key>MinimumOSVersion<\/key><string>.*<\/string>/<key>MinimumOSVersion<\/key><string>13.0<\/string>/' ios/Flutter/AppFrameworkInfo.plist
+
+      - uses: actions/cache@v3
+        with:
+          path: ios/Pods
+          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pods-
+
+      - name: Install Pods
+        run: |
+          cd ios
+          pod repo update
+          pod install
+          cd ..
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Build IPA
+        run: |
+          flutter build ios --release --no-codesign
+          cd build/ios/iphoneos
+          mkdir Payload
+          mv Runner.app Payload
+          zip -qq -r -9 MDPL.ipa Payload
+          cd ../../..
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/ios/iphoneos/MDPL.ipa
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v1.${{ github.run_number }}
+          name: "Release v1.${{ github.run_number }}"
+          body: "Penyempurnaan design dan fixing bug"
+          files: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/ios/iphoneos/MDPL.ipa
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
