@@ -46,18 +46,9 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 
-	<!-- Izin lokasi -->
+	<!-- Izin lokasi hanya saat app digunakan -->
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Aplikasi ini membutuhkan akses lokasi untuk menampilkan posisi dan ketinggian Anda.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Aplikasi ini membutuhkan akses lokasi agar dapat melacak posisi Anda secara akurat.</string>
-
-	<!-- Background mode (opsional) -->
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>fetch</string>
-		<string>location</string>
-	</array>
 
 	<!-- Izin akses jaringan -->
 	<key>NSAppTransportSecurity</key>

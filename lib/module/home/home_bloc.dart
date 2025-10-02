@@ -57,64 +57,79 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
     try {
       if (!await Geolocator.isLocationServiceEnabled()) {
-        emit(HomeError("GPS tidak aktif"));
+        emit(HomeTracking()); // fallback tetap render UI
         return;
       }
-
+      await Future.delayed(const Duration(milliseconds: 400));
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          emit(HomeError("Izin lokasi ditolak"));
-          return;
-        }
       }
       if (permission == LocationPermission.deniedForever) {
-        emit(HomeError("Izin lokasi ditolak permanen"));
+        emit(HomeTracking()); // fallback tanpa lokasi
         return;
       }
 
-      _gpsSub = Geolocator.getPositionStream(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.best,
-          distanceFilter: 1,
-        ),
-      ).listen((pos) async {
-        if (pos.latitude.isNaN || pos.longitude.isNaN) {
-          return;
-        }
+      // GPS Listener
+      _gpsSub =
+          Geolocator.getPositionStream(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.best,
+              distanceFilter: 1,
+            ),
+          ).listen((pos) async {
+            try {
+              if (pos.latitude.isNaN || pos.longitude.isNaN) {
+                return;
+              }
 
-        bool hasInternet = false;
-        try {
-          final result = await InternetAddress.lookup("example.com");
-          hasInternet = result.isNotEmpty && result[0].rawAddress.isNotEmpty;
-        } catch (_) {
-          hasInternet = false;
-        }
-        add(PositionUpdated(pos, hasInternet));
-      });
+              bool hasInternet = false;
+              try {
+                final result = await InternetAddress.lookup(
+                  "example.com",
+                ).timeout(const Duration(seconds: 2));
+                hasInternet =
+                    result.isNotEmpty && result[0].rawAddress.isNotEmpty;
+              } catch (_) {
+                hasInternet = false;
+              }
 
+              if (!isClosed) {
+                add(PositionUpdated(pos, hasInternet));
+              }
+            } catch (_) {}
+          });
+
+      // Barometer Listener
       try {
         _baroSub = barometerEventStream().listen(
           (event) {
-            const double p0 = 1013.25;
-            double pressure = event.pressure / 100.0;
-            double altitude = 44330.0 * (1.0 - pow(pressure / p0, 0.1903));
-            add(BarometerUpdated(altitude));
+            try {
+              const double p0 = 1013.25;
+              double pressure = event.pressure / 100.0;
+              double altitude = 44330.0 * (1.0 - pow(pressure / p0, 0.1903));
+              if (!isClosed) {
+                add(BarometerUpdated(altitude));
+              }
+            } catch (_) {}
           },
           onError: (_) {
-            add(BarometerError("Device tidak memiliki sensor barometer."));
+            if (!isClosed) {
+              add(BarometerError("Device tidak ada barometer"));
+            }
           },
-          cancelOnError: true,
+          cancelOnError: false,
         );
       } catch (_) {
-        add(BarometerError("Sensor barometer tidak tersedia"));
+        if (!isClosed) {
+          add(BarometerError("Barometer tidak tersedia"));
+        }
       }
 
       emit(HomeTracking());
       add(LoadHistories());
-    } catch (e) {
-      emit(HomeError("Gagal tracking: $e"));
+    } catch (_) {
+      emit(HomeTracking()); // fallback aman
     }
   }
 
@@ -131,8 +146,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     PositionUpdated event,
     Emitter<HomeState> emit,
   ) async {
-    final currentState =
-        state is HomeTracking ? state as HomeTracking : HomeTracking();
+    final currentState = state is HomeTracking
+        ? state as HomeTracking
+        : HomeTracking();
 
     String? name = currentState.locationName;
 
@@ -142,10 +158,13 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     } else {
       name =
           _findNearestPeak(event.position.latitude, event.position.longitude) ??
-              name ??
-              "Lokasi tidak dikenal (offline)";
+          name ??
+          "Lokasi tidak dikenal (offline)";
     }
 
+    if (isClosed) {
+      return;
+    }
     emit(
       HomeTracking(
         altitude: _latestBaroAltitude ?? event.position.altitude,
@@ -162,8 +181,13 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
   void _onBarometerUpdated(BarometerUpdated event, Emitter<HomeState> emit) {
     _latestBaroAltitude = event.altitude;
-    final currentState =
-        state is HomeTracking ? state as HomeTracking : HomeTracking();
+    final currentState = state is HomeTracking
+        ? state as HomeTracking
+        : HomeTracking();
+
+    if (isClosed) {
+      return;
+    }
     emit(
       HomeTracking(
         altitude: event.altitude,
@@ -181,8 +205,13 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     LocationNameResolved event,
     Emitter<HomeState> emit,
   ) {
-    final currentState =
-        state is HomeTracking ? state as HomeTracking : HomeTracking();
+    final currentState = state is HomeTracking
+        ? state as HomeTracking
+        : HomeTracking();
+
+    if (isClosed) {
+      return;
+    }
     emit(
       HomeTracking(
         altitude: currentState.altitude,
@@ -198,13 +227,17 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
   void _onBarometerError(BarometerError event, Emitter<HomeState> emit) {
     final last = state is HomeTracking ? state as HomeTracking : HomeTracking();
-    emit(HomeError(event.message));
-    emit(last);
+    emit(last); // fallback, tidak bikin crash
   }
 
   void _onWeatherUpdated(WeatherUpdated event, Emitter<HomeState> emit) {
-    final currentState =
-        state is HomeTracking ? state as HomeTracking : HomeTracking();
+    final currentState = state is HomeTracking
+        ? state as HomeTracking
+        : HomeTracking();
+
+    if (isClosed) {
+      return;
+    }
     emit(
       HomeTracking(
         altitude: currentState.altitude,
@@ -223,22 +256,22 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       final url = Uri.parse(
         "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current_weather=true",
       );
-      final response = await http.get(url);
+      final response = await http.get(url).timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data["current_weather"] != null) {
           int code = data["current_weather"]["weathercode"];
           String condition = _mapWeatherCodeToCondition(code);
-          add(WeatherUpdated(condition));
-        } else {
-          add(WeatherUpdated("Unknown"));
+          if (!isClosed) {
+            add(WeatherUpdated(condition));
+          }
         }
-      } else {
-        add(WeatherUpdated("Unknown"));
       }
     } catch (_) {
-      add(WeatherUpdated("Unknown"));
+      if (!isClosed) {
+        add(WeatherUpdated("Unknown"));
+      }
     }
   }
 
@@ -257,18 +290,21 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
   Future<void> _resolveLocationName(double lat, double lng) async {
     try {
-      final placemarks = await placemarkFromCoordinates(lat, lng);
+      final placemarks = await placemarkFromCoordinates(
+        lat,
+        lng,
+      ).timeout(const Duration(seconds: 5));
       if (placemarks.isNotEmpty) {
         final place = placemarks.first;
         final parts = <String?>[
           place.name,
-          place.street,
-          place.subLocality,
           place.locality,
           place.administrativeArea,
         ];
         final name = parts.where((e) => e != null && e.isNotEmpty).join(", ");
-        add(LocationNameResolved(name));
+        if (!isClosed) {
+          add(LocationNameResolved(name));
+        }
       }
     } catch (_) {}
   }
@@ -277,7 +313,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     const R = 6371;
     final dLat = (lat2 - lat1) * (pi / 180);
     final dLon = (lon2 - lon1) * (pi / 180);
-    final a = sin(dLat / 2) * sin(dLat / 2) +
+    final a =
+        sin(dLat / 2) * sin(dLat / 2) +
         cos(lat1 * (pi / 180)) *
             cos(lat2 * (pi / 180)) *
             sin(dLon / 2) *
@@ -290,6 +327,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     if (_peaks.isEmpty) {
       return null;
     }
+
     double minDist = double.infinity;
     String? nearest;
     for (final p in _peaks) {
@@ -307,10 +345,12 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     return minDist < 20 ? nearest : null;
   }
 
+  // save/load history sama dengan punyamu
   Future<void> _onSaveMdpl(SaveMdpl event, Emitter<HomeState> emit) async {
     final prefs = await SharedPreferences.getInstance();
-    final currentState =
-        state is HomeTracking ? state as HomeTracking : HomeTracking();
+    final currentState = state is HomeTracking
+        ? state as HomeTracking
+        : HomeTracking();
 
     final list = currentState.mdplHistory.toList()
       ..add({
@@ -337,8 +377,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     Emitter<HomeState> emit,
   ) async {
     final prefs = await SharedPreferences.getInstance();
-    final currentState =
-        state is HomeTracking ? state as HomeTracking : HomeTracking();
+    final currentState = state is HomeTracking
+        ? state as HomeTracking
+        : HomeTracking();
 
     final list = currentState.locationHistory.toList()
       ..add({
@@ -374,13 +415,13 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     final mdplList = mdplData != null
         ? List<Map<String, dynamic>>.from(jsonDecode(mdplData))
         : <Map<String, dynamic>>[];
-
     final locList = locData != null
         ? List<Map<String, dynamic>>.from(jsonDecode(locData))
         : <Map<String, dynamic>>[];
 
-    final currentState =
-        state is HomeTracking ? state as HomeTracking : HomeTracking();
+    final currentState = state is HomeTracking
+        ? state as HomeTracking
+        : HomeTracking();
 
     emit(
       HomeTracking(
@@ -402,8 +443,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove("mdplHistory");
 
-    final currentState =
-        state is HomeTracking ? state as HomeTracking : HomeTracking();
+    final currentState = state is HomeTracking
+        ? state as HomeTracking
+        : HomeTracking();
 
     emit(
       HomeTracking(
@@ -425,8 +467,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove("locationHistory");
 
-    final currentState =
-        state is HomeTracking ? state as HomeTracking : HomeTracking();
+    final currentState = state is HomeTracking
+        ? state as HomeTracking
+        : HomeTracking();
 
     emit(
       HomeTracking(

@@ -121,15 +121,17 @@ class _HomePageState extends State<HomePage> {
                       _buildInfoButton(textColor),
                     ],
                   );
-                } else if (state is HomeError) {
+                } else {
                   return Center(
-                    child: Text(
-                      state.message,
-                      style: const TextStyle(color: Colors.red, fontSize: 16),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        BaseWidgets.shimmer(),
+                        const SizedBox(height: 12),
+                        const Text("Menunggu data lokasi..."),
+                      ],
                     ),
                   );
-                } else {
-                  return BaseWidgets.shimmer();
                 }
               }(),
               floatingActionButton:
@@ -141,7 +143,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// ====== HISTORY ======
   Widget _buildMdplHistory(HomeTracking state) => ListView(
         padding: const EdgeInsets.all(20),
         children: [
@@ -243,15 +244,13 @@ class _HomePageState extends State<HomePage> {
         ],
       );
 
-  /// ====== MAIN CONTENT ======
   Widget _buildMainContent(
     HomeTracking state,
     Color textColor,
     String time,
     String date,
   ) {
-    // 🔑 Fallback: jika GPS null → gunakan barometer altitude dari bloc
-    final altitudeValue = state.altitude?.round() ?? "-";
+    final altitudeValue = state.altitude?.round() ?? 0;
 
     return Padding(
       padding: const EdgeInsets.all(20.0),
@@ -275,7 +274,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// ====== SAVE BUTTONS GLASS ======
   Widget _buildSaveButtons(HomeTracking state) => Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -359,7 +357,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// ====== TOP BAR ======
   Widget _buildTopBar(Color textColor, String time, String date) => Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -400,7 +397,6 @@ class _HomePageState extends State<HomePage> {
         ],
       );
 
-  /// ====== LOCATION INFO ======
   Widget _buildLocationInfo(HomeTracking state) => Column(
         children: [
           if (state.locationName != null)
@@ -417,7 +413,6 @@ class _HomePageState extends State<HomePage> {
         ],
       );
 
-  /// ====== DIALOG INPUT ======
   Future<String?> _inputNameDialog(BuildContext context) async {
     final controller = TextEditingController();
     return showDialog<String>(
@@ -442,7 +437,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// ====== WEATHER BACKGROUND ======
   Widget _buildWeatherBackground(String condition) {
     switch (condition) {
       case "Rain":
@@ -455,7 +449,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// ====== INFO BUTTON ======
   Widget _buildInfoButton(Color textColor) => Positioned(
         bottom: 20,
         left: 20,
@@ -474,7 +467,6 @@ class _HomePageState extends State<HomePage> {
         ),
       );
 
-  /// ====== FAB (GLASS) ======
   Widget _buildFab(BuildContext context, HomeTracking state) => SpeedDial(
         animatedIcon: AnimatedIcons.menu_close,
         buttonSize: const Size(40, 40),
@@ -563,7 +555,6 @@ class _HomePageState extends State<HomePage> {
             ),
         ],
       );
-
   SpeedDialChild _glassAction({
     required Widget icon,
     required String label,
