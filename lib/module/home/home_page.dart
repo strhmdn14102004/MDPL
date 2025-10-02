@@ -345,7 +345,7 @@ class _HomePageState extends State<HomePage> {
             )
           else
             Text(
-              "Lokasi tidak tersedia",
+              "",
               style: TextStyle(color: textColor.withOpacity(0.6)),
             ),
           if (state.latitude != null && state.longitude != null)

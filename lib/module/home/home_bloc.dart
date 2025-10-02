@@ -1,8 +1,9 @@
 import "dart:async";
 import "dart:convert";
 import "dart:io";
-import "dart:math" as math;
+import "dart:math" show cos, sqrt, asin, sin, pi, pow;
 
+import "package:flutter/services.dart" show rootBundle;
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:geocoding/geocoding.dart";
 import "package:geolocator/geolocator.dart";
@@ -17,6 +18,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   StreamSubscription<BarometerEvent>? _baroSub;
 
   double? _latestBaroAltitude;
+  List<Map<String, dynamic>> _peaks = [];
 
   HomeBloc() : super(HomeInitial()) {
     on<StartHomeTracking>(_onStartTracking);
@@ -33,6 +35,18 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
     on<ClearMdplHistory>(_onClearMdplHistory);
     on<ClearLocationHistory>(_onClearLocationHistory);
+
+    _loadPeaks();
+  }
+
+  Future<void> _loadPeaks() async {
+    try {
+      final jsonStr = await rootBundle.loadString("assets/peaks.json");
+      final List data = jsonDecode(jsonStr);
+      _peaks = data.map((e) => e as Map<String, dynamic>).toList();
+    } catch (_) {
+      _peaks = [];
+    }
   }
 
   Future<void> _onStartTracking(
@@ -81,7 +95,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           (event) {
             const double p0 = 1013.25;
             double pressure = event.pressure / 100.0;
-            double altitude = 44330.0 * (1.0 - math.pow(pressure / p0, 0.1903));
+            double altitude = 44330.0 * (1.0 - pow(pressure / p0, 0.1903));
             add(BarometerUpdated(altitude));
           },
           onError: (_) {
@@ -116,21 +130,29 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     final currentState =
         state is HomeTracking ? state as HomeTracking : HomeTracking();
 
-    final newState = HomeTracking(
-      altitude: _latestBaroAltitude ?? event.position.altitude,
-      latitude: event.position.latitude,
-      longitude: event.position.longitude,
-      locationName: currentState.locationName,
-      weatherCondition: currentState.weatherCondition,
-      mdplHistory: currentState.mdplHistory,
-      locationHistory: currentState.locationHistory,
-    );
-    emit(newState);
+    String? name = currentState.locationName;
 
     if (event.hasInternet) {
       _resolveLocationName(event.position.latitude, event.position.longitude);
       await _fetchWeather(event.position.latitude, event.position.longitude);
+    } else {
+      name =
+          _findNearestPeak(event.position.latitude, event.position.longitude) ??
+              name ??
+              "Lokasi tidak dikenal (offline)";
     }
+
+    emit(
+      HomeTracking(
+        altitude: _latestBaroAltitude ?? event.position.altitude,
+        latitude: event.position.latitude,
+        longitude: event.position.longitude,
+        locationName: name,
+        weatherCondition: currentState.weatherCondition,
+        mdplHistory: currentState.mdplHistory,
+        locationHistory: currentState.locationHistory,
+      ),
+    );
   }
 
   void _onBarometerUpdated(BarometerUpdated event, Emitter<HomeState> emit) {
@@ -244,6 +266,40 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         add(LocationNameResolved(name));
       }
     } catch (_) {}
+  }
+
+  double _haversine(double lat1, double lon1, double lat2, double lon2) {
+    const R = 6371;
+    final dLat = (lat2 - lat1) * (pi / 180);
+    final dLon = (lon2 - lon1) * (pi / 180);
+    final a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(lat1 * (pi / 180)) *
+            cos(lat2 * (pi / 180)) *
+            sin(dLon / 2) *
+            sin(dLon / 2);
+    final c = 2 * asin(sqrt(a));
+    return R * c;
+  }
+
+  String? _findNearestPeak(double lat, double lon) {
+    if (_peaks.isEmpty) {
+      return null;
+    }
+    double minDist = double.infinity;
+    String? nearest;
+    for (final p in _peaks) {
+      final dist = _haversine(
+        lat,
+        lon,
+        (p["latitude"] as num).toDouble(),
+        (p["longitude"] as num).toDouble(),
+      );
+      if (dist < minDist) {
+        minDist = dist;
+        nearest = p["name"];
+      }
+    }
+    return minDist < 20 ? nearest : null;
   }
 
   Future<void> _onSaveMdpl(SaveMdpl event, Emitter<HomeState> emit) async {

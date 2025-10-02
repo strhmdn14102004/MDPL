@@ -37,6 +37,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/
+    - assets/peaks.json
     - assets/font/
     - assets/image/
     - assets/lottie/
